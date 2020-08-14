@@ -28,8 +28,8 @@ conn = conectarBD( host, nomeBanco, usuario, senha, porta )
 
 cur = conn.cursor()
 
-cur.execute("CREATE TABLE IF NOT EXISTS cidade (id serial PRIMARY KEY, city_ibge_code integer, city varchar, state varchar);")
-cur.execute("CREATE TABLE IF NOT EXISTS casos (id serial PRIMARY KEY, city_ibge_code integer, date last_available_confirmed integer, last_available_deaths integer, new_confirmed integer, new_deaths integer);")
+cur.execute("CREATE TABLE IF NOT EXISTS cidade (id serial PRIMARY KEY, codigo_ibge integer, nome_cidade varchar, estado varchar, numero_habitantes integer);")
+cur.execute("CREATE TABLE IF NOT EXISTS casos (id serial PRIMARY KEY, codigo_ibge integer, data_registro date, total_mortes integer, novas_mortes integer, total_casos_confirmados integer, novos_casos_confirmados integer);")
 conn.commit()
 cur.close()
 conn.close()
