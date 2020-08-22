@@ -1,69 +1,60 @@
+import numpy 
 import pandas as pd
-import numpy as np
-import psycopg2
+import psycopg2 as pg
 
-%matplotlib inline
-plt.rcParams["figure.figsize"] = [15, 15]
+import criador as criador
 
-host = "localhost"
-nomeBanco = "grupo_extensão"
 usuario = "csk"
 senha = "csk123"
-porta = 5432
 
-def conectarBD(hostName, dbName, userName, pw, port):
+filePath = 'dados_covid.csv'
+
+db = criador.connectDatabase()
+cursor = db.cursor()
+
+dadosCovid = pd.read_csv( filePath )
+filtro_cidades = (dadosCovid['city'] == 'Joinville') | (dadosCovid['city'] == 'Francisco Beltrão') | (dadosCovid['city'] == 'Dois Vizinhos') | (dadosCovid['city'] == 'Pato Branco') | (dadosCovid['city'] == 'Florianópolis')
+dadosCovid = dadosCovid[filtro_cidades]
+
+cidades = dadosCovid.drop_duplicates( 'city' )
+for index, cidade in cidades.iterrows():
     try:
-        conn = psycopg2.connect(
-            host = hostName,
-            dbname = dbName,
-            user = userName,
-            password = pw,
-            port = port
+        cursor.execute( 
+            """
+            INSERT INTO cidade ( codigo_ibge, estado, nome_cidade, numero_habitantes )
+            VALUES ( %(CODIGO_IBGE)s, %(ESTADO)s, %(NOME_CIDADE)s, %(NUMERO_HABITANTES)s );
+            """, {
+                'CODIGO_IBGE': cidade['city_ibge_code'],
+                'ESTADO': cidade['state'],
+                'NOME_CIDADE': cidade[ 'city' ],
+                'NUMERO_HABITANTES': cidade[ 'estimated_population_2019' ]
+            }
         )
     except Exception as err:
-        print("Houve um erro!")
+        print("Falha ao executar insert!")
         print(err)
-    
-    return conn
 
-conn = conectarBD( host, nomeBanco, usuario, senha, porta )
+dadosCovid = dadosCovid.sort_values( 'city' )
+for index, casos in dadosCovid.iterrows():
+    try:
+        cursor.execute( 
+            """
+            INSERT INTO contagio ( data_registro, codigo_ibge, total_casos_confirmados, novos_casos_confirmados, total_mortes, novas_mortes )
+            VALUES ( %(DATA_REGISTRO)s, %(CODIGO_IBGE)s, %(TOTAL_CASOS_CONFIRMADOS)s, %(NOVOS_CASOS_CONFIRMADOS)s, %(TOTAL_MORTES)s, %(NOVAS_MORTES)s );
+            """, {
+                'DATA_REGISTRO': casos['date'],
+                'CODIGO_IBGE': casos['city_ibge_code'],
+                'TOTAL_CASOS_CONFIRMADOS': casos['last_available_confirmed'],
+                'NOVOS_CASOS_CONFIRMADOS': casos[ 'new_confirmed' ],
+                'TOTAL_MORTES': casos[ 'last_available_deaths' ],
+                'NOVAS_MORTES': casos[ 'new_deaths' ],
+            }
+        )
+    except Exception as err:
+        print("Falha ao executar insert!")
+        print(err)
 
-cur = conn.cursor()
+db.commit()
 
-df_completo = pd.read_csv("covid19_casos_brasil.csv")
-
-
-colsCidade = ['city_ibge_code', 'city', 'state', 'estimated_population_2019']
-filtro_cidades = (df_completo['city'] == 'Joinville') | (df_completo['city'] == 'Francisco Beltrão') | (df_completo['city'] == 'Dois Vizinhos') | (df_completo['city'] == 'Pato Branco') | (df_completo['city'] == 'Florianópolis')
-df_completo_cidade = df_completo[filtro_cidades][colsCidade]
-df_cidade = df_completo_cidade.tail()
-
-for index, row in df_cidade.iterrows():
-    cur.execute("""
-        INSERT INTO cidade (codigo_ibge, nome_cidade, estado, numero_habitantes)
-        VALUES (%(a)s, %(b)s, %(c)s, %(d)s);
-        """,{'a': row['city_ibge_code'],
-             'b': row['city'],
-             'c': row['state'],
-             'd': row['estimated_population_2019']
-            })
-conn.commit()
-
-colsCasos = ['city_ibge_code', 'date', 'last_available_deaths', 'new_deaths', 'last_available_confirmed', 'new_confirmed']
-df_completo_casos = df_completo[filtro_cidades][colsCasos]
-df_cidade = df_completo_casos
-
-for index, row in df_cidade.iterrows():
-    cur.execute("""
-        INSERT INTO contagio (codigo_ibge, data_registro, total_mortes, novas_mortes, total_casos_confirmados, novos_casos_confirmados)
-        VALUES (%(a)s, %(b)s, %(c)s, %(d)s, %(e)s, %(f)s);
-        """,{'a': row['city_ibge_code'],
-             'b': row['date'],
-             'c': row['last_available_deaths'],
-             'd': row['new_deaths'],
-             'e': row['last_available_confirmed'],
-             'f': row['new_confirmed']
-            })
-conn.commit()
-cur.close()
-conn.close()
+cursor.close()
+db.close()

@@ -1,35 +1,46 @@
-import psycopg2
+import psycopg2 as pg
 
-%matplotlib inline
-plt.rcParams["figure.figsize"] = [15, 15]
-
+nomeBanco = "grupo_extensao"
 host = "localhost"
-nomeBanco = "grupo_extensão"
+porta = 5432
 usuario = "csk"
 senha = "csk123"
-porta = 5432
 
-def conectarBD(hostName, dbName, userName, pw, port):
+def connectDatabase( nomeBanco = nomeBanco, host = host, porta = porta, usuario = usuario, senha = senha ):
     try:
-        conn = psycopg2.connect(
-            host = hostName,
-            dbname = dbName,
-            user = userName,
-            password = pw,
-            port = port
-        )
-    except Exception as err:
-        print("Houve um erro!")
+        db = pg.connect( 
+            dbname = nomeBanco,
+            host = host,
+            port = porta,
+            user = usuario,
+            password = senha
+         )
+
+    except Exception as err :
+        print("Falha ao conectar ao banco de dados!")
         print(err)
-    
-    return conn
 
-conn = conectarBD( host, nomeBanco, usuario, senha, porta )
+    else:
+        return db
 
-cur = conn.cursor()
+def createDatabase( cursor, db ):
+    cursor.execute(
+        """
+        CREATE TABLE IF NOT EXISTS cidade ( codigo_ibge integer PRIMARY KEY, nome_cidade varchar, estado varchar, numero_habitantes integer );
+        """
+    )
+    cursor.execute(
+        """
+        CREATE TABLE IF NOT EXISTS contagio ( codigo_ibge integer, data_registro date, total_casos_confirmados integer, novos_casos_confirmados integer, total_mortes integer, novas_mortes integer );
+        """
+    )
 
-cur.execute("CREATE TABLE IF NOT EXISTS cidade (id serial PRIMARY KEY, codigo_ibge integer, nome_cidade varchar, estado varchar, numero_habitantes integer);")
-cur.execute("CREATE TABLE IF NOT EXISTS casos (id serial PRIMARY KEY, codigo_ibge integer, data_registro date, total_mortes integer, novas_mortes integer, total_casos_confirmados integer, novos_casos_confirmados integer);")
-conn.commit()
-cur.close()
-conn.close()
+    db.commit()
+
+db = connectDatabase()
+
+cursor = db.cursor()
+createDatabase( cursor, db )
+
+cursor.close()
+db.close()
