@@ -1,6 +1,6 @@
 import psycopg2 as pg
 
-nomeBanco = "grupo_extensao"
+nomeBanco = "grupo_extensão"
 host = "localhost"
 porta = 5432
 usuario = "csk"
